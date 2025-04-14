@@ -23,5 +23,124 @@ class YoutubeApiService
         return null;
     }
 
+    // ✅ 채널 ID → 업로드 플레이리스트 ID 조회
+    public function getUploadsPlaylistId(string $youtubeChannelId): ?string
+    {
+        $response = Http::get('https://www.googleapis.com/youtube/v3/channels', [
+            'part' => 'contentDetails',
+            'id' => $youtubeChannelId,
+            'key' => config('services.youtube.key'),
+        ]);
+
+        $json = $response->json();
+
+        if ($response->ok() && isset($json['items'][0]['contentDetails']['relatedPlaylists']['uploads'])) {
+            return $json['items'][0]['contentDetails']['relatedPlaylists']['uploads'];
+        }
+
+        return null;
+    }
+
+    // 다음 단계 메서드 틀도 미리 준비해둘게요 👇
+    public function getVideoIdsFromPlaylist(string $playlistId): array
+    {
+        $videoIds = [];
+        $pageToken = null;
+
+        do {
+            $response = Http::get('https://www.googleapis.com/youtube/v3/playlistItems', [
+                'part' => 'contentDetails',
+                'playlistId' => $playlistId,
+                'maxResults' => 50,
+                'pageToken' => $pageToken,
+                'key' => config('services.youtube.key'),
+            ]);
+
+            $json = $response->json();
+
+            if (!$response->ok() || !isset($json['items'])) {
+                break;
+            }
+
+            foreach ($json['items'] as $item) {
+                if (isset($item['contentDetails']['videoId'])) {
+                    $videoIds[] = $item['contentDetails']['videoId'];
+                }
+            }
+
+            // 다음 페이지 토큰 설정 (없으면 null로 종료됨)
+            $pageToken = $json['nextPageToken'] ?? null;
+
+            if ($pageToken) {
+                sleep(1); // 1초 기다림 (1000ms)
+                // 또는 usleep(500000); // 0.5초 쉬기
+            }
+
+        } while ($pageToken);
+
+        return $videoIds;
+    }
+
+    public function getVideoDetails(array $videoIds): array
+    {
+        if (empty($videoIds)) return [];
+
+        $results = [];
+
+        // 50개씩 나눠서 처리 (YouTube API 제한)
+        foreach (array_chunk($videoIds, 50) as $chunk) {
+            $ids = implode(',', $chunk);
+
+            $response = Http::get('https://www.googleapis.com/youtube/v3/videos', [
+                'part' => 'snippet,statistics,contentDetails,status',
+                'id' => $ids,
+                'key' => config('services.youtube.key'),
+            ]);
+
+            $json = $response->json();
+
+            if (!$response->ok() || !isset($json['items'])) {
+                continue;
+            }
+
+            foreach ($json['items'] as $item) {
+                $duration = $item['contentDetails']['duration'] ?? null;
+
+                // ✅ ISO8601 형식 (예: PT45S, PT2M3S) → 초 단위로 변환
+                $seconds = $this->parseDurationToSeconds($duration);
+
+                $results[] = [
+                    'youtube_video_id' => $item['id'],
+                    'title' => $item['snippet']['title'] ?? null,
+                    'description' => $item['snippet']['description'] ?? null,
+                    'thumbnail_url' => $item['snippet']['thumbnails']['default']['url'] ?? null,
+                    'published_at' => $item['snippet']['publishedAt'] ?? null,
+                    'duration' => $item['contentDetails']['duration'] ?? null,
+                    'view_count' => $item['statistics']['viewCount'] ?? 0,
+                    'like_count' => $item['statistics']['likeCount'] ?? 0,
+                    'comment_count' => $item['statistics']['commentCount'] ?? 0,
+                    'privacy_status' => $item['status']['privacyStatus'] ?? 'public',
+                    'video_type' => ($seconds > 0 && $seconds <= 60) ? 'shorts' : 'normal',
+                ];
+            }
+
+            // 너무 빠르게 호출하지 않도록 여유를 줄 수도 있음
+            usleep(500000); // 0.5초 대기
+        }
+
+        return $results;
+    }
+
+    protected function parseDurationToSeconds(?string $duration): int
+    {
+        if (!$duration) return 0;
+
+        try {
+            $interval = new \DateInterval($duration);
+            return ($interval->h * 3600) + ($interval->i * 60) + $interval->s;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
 }
 
