@@ -37,4 +37,9 @@ class Video extends Model
     {
         return $this->belongsTo(Channel::class);
     }
+
+    public function scene()
+    {
+        return $this->hasOne(VideoScene::class);
+    }
 }
