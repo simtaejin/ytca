@@ -36,4 +36,9 @@ class Channel extends Model
     {
         return $this->hasMany(Video::class);
     }
+
+    public function youtubeToken()
+    {
+        return $this->belongsTo(\App\Models\YoutubeToken::class);
+    }
 }
