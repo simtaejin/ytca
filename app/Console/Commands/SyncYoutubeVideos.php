@@ -1,18 +1,16 @@
 <?php
-
 namespace App\Console\Commands;
 
 use App\Models\Video;
+use App\Models\Channel;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use App\Models\Channel;
 use App\Services\YoutubeApiService;
 
 class SyncYoutubeVideos extends Command
 {
     protected $signature = 'youtube:sync-videos {--channel=}';
     protected $description = 'YouTube 채널의 영상 목록을 동기화합니다.';
-
     protected YoutubeApiService $youtube;
 
     public function __construct(YoutubeApiService $youtube)
@@ -25,7 +23,6 @@ class SyncYoutubeVideos extends Command
     {
         $channelIdOption = $this->option('channel');
 
-        // 특정 채널만 동기화할 경우
         if ($channelIdOption) {
             $channel = Channel::where('youtube_channel_id', $channelIdOption)->first();
 
@@ -38,7 +35,6 @@ class SyncYoutubeVideos extends Command
             return;
         }
 
-        // 전체 채널 동기화 (is_active + youtube_channel_id 존재)
         $channels = Channel::where('is_active', true)
             ->whereNotNull('youtube_channel_id')
             ->get();
@@ -47,31 +43,35 @@ class SyncYoutubeVideos extends Command
             $this->syncChannelVideos($channel);
         }
 
-        $this->info("🎉 영상 동기화 완료!");
+        $this->info("🎉 전체 채널 영상 동기화 완료!");
     }
 
     protected function syncChannelVideos(Channel $channel): void
     {
         $this->info("🔄 채널: {$channel->name} 영상 동기화 중...");
 
-        // 1. 업로드 재생목록 ID 가져오기
-        $playlistId = $this->youtube->getUploadsPlaylistId($channel->youtube_channel_id);
+        $accessToken = $channel->youtubeToken?->access_token;
 
-        if (!$playlistId) {
-            $this->warn("⚠️ 업로드 리스트 ID를 찾을 수 없습니다.");
-            return;
+        if ($accessToken) {
+            $this->info("🔐 비공개 포함 영상 가져오는 중...");
+            $videoDetails = $this->youtube->getMyUploadedVideos($accessToken);
+        } else {
+            $playlistId = $this->youtube->getUploadsPlaylistId($channel->youtube_channel_id);
+
+            if (!$playlistId) {
+                $this->warn("⚠️ 업로드 리스트 ID를 찾을 수 없습니다.");
+                return;
+            }
+
+            $videoIds = $this->youtube->getVideoIdsFromPlaylist($playlistId);
+
+            if (empty($videoIds)) {
+                $this->warn("⚠️ 영상 ID 목록을 가져오지 못했습니다.");
+                return;
+            }
+
+            $videoDetails = $this->youtube->getVideoDetails($videoIds);
         }
-
-        // 2. 영상 ID 목록 가져오기
-        $videoIds = $this->youtube->getVideoIdsFromPlaylist($playlistId);
-
-        if (empty($videoIds)) {
-            $this->warn("⚠️ 영상 ID 목록을 가져오지 못했습니다.");
-            return;
-        }
-
-        // 3. 영상 상세 정보 가져오기
-        $videoDetails = $this->youtube->getVideoDetails($videoIds);
 
         $saved = 0;
 

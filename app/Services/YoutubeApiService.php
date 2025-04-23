@@ -81,20 +81,26 @@ class YoutubeApiService
         return $videoIds;
     }
 
-    public function getVideoDetails(array $videoIds): array
+    public function getVideoDetails(array $videoIds, ?string $accessToken = null): array
     {
         if (empty($videoIds)) return [];
 
         $results = [];
 
-        // 50개씩 나눠서 처리 (YouTube API 제한)
         foreach (array_chunk($videoIds, 50) as $chunk) {
             $ids = implode(',', $chunk);
 
-            $response = Http::get('https://www.googleapis.com/youtube/v3/videos', [
+            $request = Http::asJson();
+
+            if ($accessToken) {
+                $request = $request->withToken($accessToken);
+            } else {
+                $request = $request->withHeaders(['key' => config('services.youtube.key')]);
+            }
+
+            $response = $request->get('https://www.googleapis.com/youtube/v3/videos', [
                 'part' => 'snippet,statistics,contentDetails,status',
                 'id' => $ids,
-                'key' => config('services.youtube.key'),
             ]);
 
             $json = $response->json();
@@ -105,8 +111,6 @@ class YoutubeApiService
 
             foreach ($json['items'] as $item) {
                 $duration = $item['contentDetails']['duration'] ?? null;
-
-                // ✅ ISO8601 형식 (예: PT45S, PT2M3S) → 초 단위로 변환
                 $seconds = $this->parseDurationToSeconds($duration);
 
                 $results[] = [
@@ -115,7 +119,7 @@ class YoutubeApiService
                     'description' => $item['snippet']['description'] ?? null,
                     'thumbnail_url' => $item['snippet']['thumbnails']['default']['url'] ?? null,
                     'published_at' => $item['snippet']['publishedAt'] ?? null,
-                    'duration' => $item['contentDetails']['duration'] ?? null,
+                    'duration' => $duration,
                     'view_count' => $item['statistics']['viewCount'] ?? 0,
                     'like_count' => $item['statistics']['likeCount'] ?? 0,
                     'comment_count' => $item['statistics']['commentCount'] ?? 0,
@@ -124,8 +128,7 @@ class YoutubeApiService
                 ];
             }
 
-            // 너무 빠르게 호출하지 않도록 여유를 줄 수도 있음
-            usleep(500000); // 0.5초 대기
+            usleep(500000);
         }
 
         return $results;
@@ -141,6 +144,41 @@ class YoutubeApiService
         } catch (\Exception $e) {
             return 0;
         }
+    }
+
+    public function getMyUploadedVideos(string $accessToken): array
+    {
+        $videoIds = [];
+        $pageToken = null;
+
+        // STEP 1: 내 영상 검색 (비공개 포함)
+        do {
+            $response = Http::withToken($accessToken)->get('https://www.googleapis.com/youtube/v3/search', [
+                'part' => 'id',
+                'forMine' => 'true',
+                'type' => 'video',
+                'maxResults' => 50,
+                'pageToken' => $pageToken,
+            ]);
+
+            $json = $response->json();
+
+            if (!$response->ok() || !isset($json['items'])) {
+                break;
+            }
+
+            foreach ($json['items'] as $item) {
+                if (isset($item['id']['videoId'])) {
+                    $videoIds[] = $item['id']['videoId'];
+                }
+            }
+
+            $pageToken = $json['nextPageToken'] ?? null;
+            usleep(500000);
+        } while ($pageToken);
+
+        // STEP 2: 상세 정보 조회
+        return $this->getVideoDetails($videoIds, $accessToken);
     }
 }
 
