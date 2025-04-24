@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Console\Commands;
 
 use App\Models\Video;
@@ -51,6 +52,7 @@ class SyncYoutubeVideos extends Command
         $this->info("🔄 채널: {$channel->name} 영상 동기화 중...");
 
         $accessToken = $channel->youtubeToken?->access_token;
+        $videoDetails = [];
 
         if ($accessToken) {
             $this->info("🔐 비공개 포함 영상 가져오는 중...");
@@ -71,6 +73,11 @@ class SyncYoutubeVideos extends Command
             }
 
             $videoDetails = $this->youtube->getVideoDetails($videoIds);
+        }
+
+        if (empty($videoDetails)) {
+            $this->warn("⚠️ 영상 상세 정보를 가져오지 못했습니다.");
+            return;
         }
 
         $saved = 0;
