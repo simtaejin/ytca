@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
 //            UserSeeder::class,
 //        ]);
         $this->call([
+            UserSeeder::class,
             ChannelSeeder::class,
         ]);
     }
