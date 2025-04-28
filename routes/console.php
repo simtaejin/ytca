@@ -4,10 +4,12 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
+// 기본 Laravel 테스트 명령어
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// (옵션) 유튜브 리프레시 토큰 갱신 - 매시간
 Schedule::command('youtube:refresh-tokens')->hourly();
 
 // 유튜브 영상 목록 동기화 (하루 2번: 오전 2시, 오후 2시)
