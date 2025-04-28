@@ -58,7 +58,7 @@ Schedule::command('youtube:sync-weekly-stats')
     ->withoutOverlapping();
 
 Schedule::command('youtube:sync-monthly-stats')
-    ->monthlyOn(1, '04:00')
+    ->monthlyOn(1, '04:15')
     ->withoutOverlapping();
 ```
 
@@ -77,12 +77,12 @@ Schedule::command('youtube:sync-monthly-stats')
 
 ## ✅ 전체 스케줄 흐름
 
-| 주기 | 시간 | 커맨드 |
-|------|------|--------|
+| 주기 | 시간           | 커맨드 |
+|------|--------------|--------|
 | 매일 | 02:00, 14:00 | youtube:sync-videos |
-| 매일 | 03:00 | youtube:sync-daily-stats |
-| 매주 월요일 | 04:00 | youtube:sync-weekly-stats |
-| 매월 1일 | 04:00 | youtube:sync-monthly-stats |
+| 매일 | 03:00        | youtube:sync-daily-stats |
+| 매주 월요일 | 04:00        | youtube:sync-weekly-stats |
+| 매월 1일 | 04:15        | youtube:sync-monthly-stats |
 
 ---
 
