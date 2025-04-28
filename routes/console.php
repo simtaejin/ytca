@@ -21,3 +21,11 @@ Schedule::command('youtube:sync-videos')
 Schedule::command('youtube:sync-daily-stats')
     ->dailyAt('03:00')
     ->withoutOverlapping();
+
+Schedule::command('youtube:sync-weekly-stats')
+    ->weeklyOn(1, '04:00') // 매주 월요일 새벽 4시
+    ->withoutOverlapping();
+
+Schedule::command('youtube:sync-monthly-stats')
+    ->monthlyOn(1, '04:00')  // 매달 1일 새벽 4시
+    ->withoutOverlapping();
