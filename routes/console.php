@@ -31,3 +31,8 @@ Schedule::command('youtube:sync-weekly-stats')
 Schedule::command('youtube:sync-monthly-stats')
     ->monthlyOn(1, '04:15')
     ->withoutOverlapping();
+
+// 연령대 통계 수집 (주 1회, 토요일 새벽 5시)
+Schedule::command('youtube:sync-age-groups')
+    ->weeklyOn(6, '05:00') // 요일 6 = 토요일
+    ->withoutOverlapping();

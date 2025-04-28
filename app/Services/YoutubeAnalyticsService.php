@@ -33,9 +33,22 @@ class YoutubeAnalyticsService
             'endDate' => $endDate,
             'metrics' => 'views,estimatedMinutesWatched,averageViewDuration',
             'dimensions' => 'video',
-            'filters' => 'video==' . $videoId,
+            'filters' => 'video=='.$videoId,
         ]);
 
         return $response->getRows()[0] ?? [];
+    }
+
+    public function getChannelAgeGroupStats(string $startDate, string $endDate): array
+    {
+        $response = $this->analytics->reports->query([
+            'ids' => 'channel==MINE',
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'metrics' => 'viewerPercentage',
+            'dimensions' => 'ageGroup',
+        ]);
+
+        return $response->getRows() ?? [];
     }
 }
