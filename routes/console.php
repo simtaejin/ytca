@@ -22,6 +22,11 @@ Schedule::command('youtube:sync-daily-stats')
     ->dailyAt('03:00')
     ->withoutOverlapping();
 
+// GPT용 일일 리포트 프롬프트 생성 (전날 기준) - 매일 03:30
+Schedule::command('youtube:prepare-daily-report')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();
+
 // 유튜브 주간 통계 저장 (매주 월요일 4시)
 Schedule::command('youtube:sync-weekly-stats')
     ->weeklyOn(1, '04:00')
