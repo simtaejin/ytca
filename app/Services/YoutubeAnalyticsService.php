@@ -10,16 +10,15 @@ class YoutubeAnalyticsService
 {
     protected Google_Service_YouTubeAnalytics $analytics;
 
-    public function __construct(YoutubeToken $token)
+    public function __construct(string $accessToken)
     {
         $client = new Google_Client();
         $client->setClientId(config('services.google.client_id'));
         $client->setClientSecret(config('services.google.client_secret'));
+
         $client->setAccessToken([
-            'access_token' => $token->access_token,
-            'expires_in' => $token->expires_at->diffInSeconds(now()),
-            'refresh_token' => $token->refresh_token,
-            'created' => $token->updated_at->timestamp,
+            'access_token' => $accessToken,
+            'created' => time(),
         ]);
 
         $this->analytics = new Google_Service_YouTubeAnalytics($client);

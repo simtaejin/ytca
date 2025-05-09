@@ -35,7 +35,7 @@ class SyncAgeGroupStats extends Command
                 continue;
             }
 
-            $analytics = new YoutubeAnalyticsService($token);
+            $analytics = new YoutubeAnalyticsService($token->access_token);
 
             $rows = $analytics->getChannelAgeGroupStats($startDate, $endDate);
 
