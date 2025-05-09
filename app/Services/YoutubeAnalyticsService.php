@@ -85,15 +85,17 @@ class YoutubeAnalyticsService
 
         $data = $rows[0];
 
+        // ✅ videoId는 첫 번째 컬럼이므로 제외하고 나머지만 저장
         return [
-            'views' => $data[0],
-            'likes' => $data[1],
-            'comments' => $data[2],
-            'shares' => $data[3],
-            'subscribers_gained' => $data[4],
-            'estimated_minutes_watched' => $data[5],
-            'average_view_duration' => $data[6],
-            'average_view_percentage' => $data[7],
+            'views' => $data[1],
+            'likes' => $data[2],
+            'comments' => $data[3],
+            'shares' => $data[4],
+            'subscribers_gained' => $data[5],
+            'estimated_minutes_watched' => $data[6],
+            'average_view_duration' => $data[7],
+            'average_view_percentage' => $data[8],
         ];
     }
+
 }
