@@ -43,6 +43,15 @@ class YoutubeSyncEngagement extends Command
                     continue;
                 }
 
+                // ✅ 평균 시청률 보정 로직
+                $videoDuration = $this->parseDurationToSeconds($video->duration);
+                if ($videoDuration > 0) {
+                    $calculated = $metrics['average_view_duration'] / $videoDuration * 100;
+                    $metrics['average_view_percentage'] = round(min($calculated, 100), 1);
+                } else {
+                    $metrics['average_view_percentage'] = 0;
+                }
+
                 VideoEngagement::updateOrCreate(
                     ['video_id' => $video->id],
                     $metrics
@@ -56,4 +65,23 @@ class YoutubeSyncEngagement extends Command
 
         $this->info("🎉 모든 채널 참여도 동기화 완료.");
     }
+
+    protected function parseDurationToSeconds(?string $duration): int
+    {
+        if (!$duration) return 0;
+
+        try {
+            $interval = new \DateInterval($duration);
+            return ($interval->h * 3600) + ($interval->i * 60) + $interval->s;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
+    // TODO
+    //| 지표명                | 저장 위치                           | 계산 방식                                 | 언제 추가 가능?        |
+    //| ------------------ | ------------------------------- | ------------------------------------- | ---------------- |
+    //| `engagement_score` | `video_engagements` 테이블 (추가 컬럼) | `(likes + comments + shares) / views` | 다음 리포트 기능 만들 때   |
+    //| `watch_quality`    | `video_engagements` 테이블 (추가 컬럼) | `estimated_minutes_watched / views`   | 시청 품질 분석 기능 도입 시 |
+
 }
