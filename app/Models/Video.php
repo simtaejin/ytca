@@ -42,4 +42,9 @@ class Video extends Model
     {
         return $this->hasOne(VideoScene::class);
     }
+
+    public function engagement()
+    {
+        return $this->hasOne(VideoEngagement::class);
+    }
 }
