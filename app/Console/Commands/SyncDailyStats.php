@@ -22,11 +22,8 @@ class SyncDailyStats extends Command
         $videos = Video::all();
         $saved = 0;
 
+        // 🔄 모든 영상 저장 → 0건도 포함
         foreach ($videos as $video) {
-            if (!$video->view_count) {
-                continue; // 비정상 데이터는 건너뛰기
-            }
-
             // 어제 데이터 가져오기
             $yesterdayStat = VideoDailyStat::where('video_id', $video->id)
                 ->where('date', $yesterday)
@@ -36,7 +33,6 @@ class SyncDailyStats extends Command
             $likeIncrease = $yesterdayStat ? $video->like_count - $yesterdayStat->like_count : 0;
             $commentIncrease = $yesterdayStat ? $video->comment_count - $yesterdayStat->comment_count : 0;
 
-            // 저장
             VideoDailyStat::updateOrCreate(
                 [
                     'video_id' => $video->id,
