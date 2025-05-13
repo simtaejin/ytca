@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
 use Google_Client;
 use Google_Service_YouTubeAnalytics;
 use App\Models\YoutubeToken;
@@ -54,10 +55,10 @@ class YoutubeAnalyticsService
     /**
      * 최근 7일간의 영상 참여도 지표 (views, likes, comments 등)
      */
-    public function getVideoEngagementMetrics(string $videoId): ?array
+    public function getVideoEngagementMetrics(string $videoId, string $publishedAt): ?array
     {
-        $startDate = now()->subDays(7)->toDateString();
-        $endDate = now()->toDateString();
+        $startDate = Carbon::parse($publishedAt)->toDateString();  // 영상 개시일
+        $endDate = now()->toDateString();                          // 오늘
 
         $response = $this->analytics->reports->query([
             'ids' => 'channel==MINE',
@@ -85,17 +86,15 @@ class YoutubeAnalyticsService
 
         $data = $rows[0];
 
-        // ✅ videoId는 첫 번째 컬럼이므로 제외하고 나머지만 저장
         return [
-            'views' => $data[1],
-            'likes' => $data[2],
-            'comments' => $data[3],
-            'shares' => $data[4],
-            'subscribers_gained' => $data[5],
-            'estimated_minutes_watched' => $data[6],
-            'average_view_duration' => $data[7],
-            'average_view_percentage' => $data[8],
+            'views' => $data[1] ?? 0,
+            'likes' => $data[2] ?? 0,
+            'comments' => $data[3] ?? 0,
+            'shares' => $data[4] ?? 0,
+            'subscribers_gained' => $data[5] ?? 0,
+            'estimated_minutes_watched' => $data[6] ?? 0,
+            'average_view_duration' => $data[7] ?? 0,
+            'average_view_percentage' => isset($data[8]) ? $data[8] : null,
         ];
     }
-
 }

@@ -36,7 +36,7 @@ class YoutubeSyncEngagement extends Command
             $updated = 0;
 
             foreach ($videos as $video) {
-                $metrics = $analytics->getVideoEngagementMetrics($video->youtube_video_id);
+                $metrics = $analytics->getVideoEngagementMetrics($video->youtube_video_id, $video->published_at);
 
                 if (!$metrics) {
                     $this->warn("⚠️ 영상 [{$video->title}] 참여도 데이터 없음.");
