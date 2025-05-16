@@ -12,6 +12,7 @@ class VideoScene extends Model
         'narration_json',
         'image_prompt_json',
         'note',
+        'typecast_voice_actor',
     ];
 
     protected $casts = [
