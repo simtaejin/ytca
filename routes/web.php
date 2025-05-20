@@ -1,5 +1,6 @@
 <?php
 
+use App\Helpers\SlackHelper;
 use App\Models\Channel;
 use App\Models\Video;
 use App\Models\YoutubeToken;
@@ -101,4 +102,21 @@ Route::get('/test-analytics', function () {
         '시청 시간(분)' => $stats[2] ?? null,
         '평균 시청 시간(초)' => $stats[3] ?? null,
     ]);
+});
+
+Route::get('/test-slack', function () {
+    $text = <<<TEXT
+📢 Slack 전송 테스트 메시지입니다.
+
+- 채널: 3분확인 1분사실
+- 영상: "파인애플은 과일이 아니다?!"
+- 조회수: 4026회
+- 분석 기준일: 오늘
+
+✅ 메시지 정상 도착 여부를 확인해주세요!
+TEXT;
+
+    $response = SlackHelper::sendReport($text);
+
+    return response()->json(['message' => 'Slack 전송 시도 완료', 'status' => $response]);
 });
