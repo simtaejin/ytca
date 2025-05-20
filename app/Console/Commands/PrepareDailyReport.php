@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use App\Models\VideoDailyStat;
 use App\Models\VideoDailyReport;
 use Carbon\Carbon;
+use App\Helpers\SlackHelper;
+
 
 class PrepareDailyReport extends Command
 {
@@ -16,9 +18,9 @@ class PrepareDailyReport extends Command
     protected array $gradeConfig = [
         ['min' => 4000, 'key' => 'S', 'label' => '🔥 대박 영상 (S급)'],
         ['min' => 1000, 'key' => 'A', 'label' => '🎯 중박 영상 (A급)'],
-        ['min' => 500,  'key' => 'B', 'label' => '✅ 소박 영상 (B급)'],
-        ['min' => 1,    'key' => 'C', 'label' => '💤 쪽박 영상 (C급)'],
-        ['min' => 0,    'key' => 'D', 'label' => '☠️ 0조회 영상 (D급)'],
+        ['min' => 500, 'key' => 'B', 'label' => '✅ 소박 영상 (B급)'],
+        ['min' => 1, 'key' => 'C', 'label' => '💤 쪽박 영상 (C급)'],
+        ['min' => 0, 'key' => 'D', 'label' => '☠️ 0조회 영상 (D급)'],
     ];
 
     public function handle()
@@ -44,16 +46,16 @@ class PrepareDailyReport extends Command
 
         foreach ($grouped as $channelName => $stats) {
             $lines[] = "🔹 채널: {$channelName}";
-            $lines[] = "- 총 조회수 증가: " . $stats->sum('view_increase');
-            $lines[] = "- 총 좋아요 수 증가: " . $stats->sum('like_increase');
-            $lines[] = "- 총 댓글 수 증가: " . $stats->sum('comment_increase');
+            $lines[] = "- 총 조회수 증가: ".$stats->sum('view_increase');
+            $lines[] = "- 총 좋아요 수 증가: ".$stats->sum('like_increase');
+            $lines[] = "- 총 댓글 수 증가: ".$stats->sum('comment_increase');
 
             // Top 3 영상
             $lines[] = "Top 3 영상:";
             $topVideos = $stats->sortByDesc('view_increase')->take(3);
             foreach ($topVideos as $i => $s) {
                 $title = $s->video->title ?? '제목 없음';
-                $lines[] = ($i + 1) . ". {$title} (+{$s->view_increase} 조회수)";
+                $lines[] = ($i + 1).". {$title} (+{$s->view_increase} 조회수)";
             }
             $lines[] = "";
 
@@ -115,6 +117,9 @@ class PrepareDailyReport extends Command
                 'gpt_answer' => $gptAnswer,
             ]
         );
+
+        // Slack 전송
+        SlackHelper::sendReport($compiledPrompt);
 
         // 📄 출력
         $this->info("\n📄 GPT 프롬프트 ↓↓↓\n");
