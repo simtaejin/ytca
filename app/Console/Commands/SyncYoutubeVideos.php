@@ -113,11 +113,11 @@ class SyncYoutubeVideos extends Command
                     continue;
                 }
 
-                $playlistVideoIds = $this->youtube->getPlaylistItems($playlist['id']);
+                $playlistVideoIds = $this->youtube->getPlaylistItems($playlist['playlist_id']);
 
                 if (in_array($video['youtube_video_id'], $playlistVideoIds)) {
-                    $playlistModel = Playlist::where('youtube_playlist_id', $playlist['id'])->first();
-                    if ($playlistModel) {
+                    $playlistModel = Playlist::where('youtube_playlist_id', $playlist['playlist_id'])->first();
+                    if ($playlistModel && isset($videoModel)) {
                         $playlistModel->videos()->syncWithoutDetaching([$videoModel->id]);
                     }
                 }
