@@ -7,6 +7,7 @@ use App\Models\Channel;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use App\Services\YoutubeApiService;
+use App\Models\Playlist;
 
 class SyncYoutubeVideos extends Command
 {
@@ -83,7 +84,8 @@ class SyncYoutubeVideos extends Command
         $saved = 0;
 
         foreach ($videoDetails as $video) {
-            Video::updateOrCreate(
+            // ✅ updateOrCreate 결과를 변수에 저장
+            $videoModel = Video::updateOrCreate(
                 ['youtube_video_id' => $video['youtube_video_id']],
                 [
                     'channel_id' => $channel->id,
@@ -101,6 +103,20 @@ class SyncYoutubeVideos extends Command
                     'is_active' => true,
                 ]
             );
+
+            // ✅ 재생목록 연결 처리
+            $playlists = $this->youtube->getPlaylistsByChannel($channel->youtube_channel_id);
+
+            foreach ($playlists as $playlist) {
+                $playlistVideoIds = $this->youtube->getPlaylistItems($playlist['id']);
+
+                if (in_array($video['youtube_video_id'], $playlistVideoIds)) {
+                    $playlistModel = Playlist::where('youtube_playlist_id', $playlist['id'])->first();
+                    if ($playlistModel) {
+                        $playlistModel->videos()->syncWithoutDetaching([$videoModel->id]);
+                    }
+                }
+            }
 
             $saved++;
         }
