@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Video;
-use Google\Service\YouTube\Playlist;
+use App\Models\Playlist;
 use Illuminate\Console\Command;
 use App\Models\Channel;
 use App\Services\YoutubeApiService;

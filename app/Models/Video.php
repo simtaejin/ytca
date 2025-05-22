@@ -51,7 +51,7 @@ class Video extends Model
     // App\Models\Video.php
     public function playlists()
     {
-        return $this->belongsToMany(Playlist::class);
+        return $this->belongsToMany(Playlist::class, 'playlist_video');
     }
 
     // App\Models\Playlist.php
