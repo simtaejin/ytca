@@ -108,6 +108,11 @@ class SyncYoutubeVideos extends Command
             $playlists = $this->youtube->getPlaylistsByChannel($channel->youtube_channel_id);
 
             foreach ($playlists as $playlist) {
+                if (!isset($playlist['id'])) {
+                    $this->warn("⚠️ playlist 항목에 'id'가 없음: ".json_encode($playlist));
+                    continue;
+                }
+
                 $playlistVideoIds = $this->youtube->getPlaylistItems($playlist['id']);
 
                 if (in_array($video['youtube_video_id'], $playlistVideoIds)) {
