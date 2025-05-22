@@ -117,7 +117,7 @@ class SyncYoutubeVideos extends Command
 
                 if (in_array($video['youtube_video_id'], $playlistVideoIds)) {
                     $playlistModel = Playlist::where('youtube_playlist_id', $playlist['playlist_id'])->first();
-                    if ($playlistModel && isset($videoModel)) {
+                    if ($playlistModel) {
                         $playlistModel->videos()->syncWithoutDetaching([$videoModel->id]);
                     }
                 }
