@@ -181,5 +181,76 @@ class YoutubeApiService
         // STEP 2: 상세 정보 조회
         return $this->getVideoDetails($videoIds, $accessToken);
     }
+
+    public function getPlaylistsByChannel(string $channelId): array
+    {
+        $playlists = [];
+        $pageToken = null;
+
+        do {
+            $response = Http::get('https://www.googleapis.com/youtube/v3/playlists', [
+                'part' => 'id,snippet',
+                'channelId' => $channelId,
+                'maxResults' => 50,
+                'pageToken' => $pageToken,
+                'key' => config('services.youtube.key'),
+            ]);
+
+            $json = $response->json();
+
+            if (!$response->ok() || !isset($json['items'])) {
+                break;
+            }
+
+            foreach ($json['items'] as $item) {
+                $playlists[] = [
+                    'playlist_id' => $item['id'],
+                    'title' => $item['snippet']['title'] ?? null,
+                    'description' => $item['snippet']['description'] ?? null,
+                    'thumbnail' => $item['snippet']['thumbnails']['default']['url'] ?? null,
+                ];
+            }
+
+            $pageToken = $json['nextPageToken'] ?? null;
+            usleep(300000);
+
+        } while ($pageToken);
+
+        return $playlists;
+    }
+
+    public function getPlaylistItems(string $playlistId): array
+    {
+        $videoIds = [];
+        $pageToken = null;
+
+        do {
+            $response = Http::get('https://www.googleapis.com/youtube/v3/playlistItems', [
+                'part' => 'contentDetails',
+                'playlistId' => $playlistId,
+                'maxResults' => 50,
+                'pageToken' => $pageToken,
+                'key' => config('services.youtube.key'),
+            ]);
+
+            $json = $response->json();
+
+            if (!$response->ok() || !isset($json['items'])) {
+                break;
+            }
+
+            foreach ($json['items'] as $item) {
+                if (isset($item['contentDetails']['videoId'])) {
+                    $videoIds[] = $item['contentDetails']['videoId'];
+                }
+            }
+
+            $pageToken = $json['nextPageToken'] ?? null;
+            usleep(300000);
+        } while ($pageToken);
+
+        return $videoIds;
+    }
+
 }
 

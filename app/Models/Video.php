@@ -47,4 +47,16 @@ class Video extends Model
     {
         return $this->hasOne(VideoEngagement::class);
     }
+
+    // App\Models\Video.php
+    public function playlists()
+    {
+        return $this->belongsToMany(Playlist::class);
+    }
+
+    // App\Models\Playlist.php
+    public function videos()
+    {
+        return $this->belongsToMany(Video::class);
+    }
 }

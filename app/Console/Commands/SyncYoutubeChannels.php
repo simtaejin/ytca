@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Video;
+use Google\Service\YouTube\Playlist;
 use Illuminate\Console\Command;
 use App\Models\Channel;
 use App\Services\YoutubeApiService;
@@ -70,5 +72,33 @@ class SyncYoutubeChannels extends Command
         ]);
 
         $this->info("✅ 동기화 완료: {$channel->name}");
+
+        // ✅ 재생목록 동기화 추가
+        $this->info("📚 재생목록 동기화 중...");
+
+        $playlists = $this->youtube->getPlaylistsByChannel($channel->youtube_channel_id);
+
+        foreach ($playlists as $playlist) {
+            $playlistModel = Playlist::updateOrCreate(
+                ['youtube_playlist_id' => $playlist['playlist_id']],
+                [
+                    'channel_id' => $channel->id,
+                    'title' => $playlist['title'],
+                    'description' => $playlist['description'] ?? null,
+                    'thumbnail_url' => $playlist['thumbnail'] ?? null,
+                ]
+            );
+
+            $videoIds = $this->youtube->getPlaylistItems($playlist['playlist_id']);
+
+            foreach ($videoIds as $youtubeVideoId) {
+                $video = Video::where('youtube_video_id', $youtubeVideoId)->first();
+                if ($video) {
+                    $playlistModel->videos()->syncWithoutDetaching([$video->id]);
+                }
+            }
+        }
+
+        $this->info("✅ 재생목록 동기화 완료: {$channel->name}");
     }
 }
