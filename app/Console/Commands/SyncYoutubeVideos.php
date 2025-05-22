@@ -4,10 +4,10 @@ namespace App\Console\Commands;
 
 use App\Models\Video;
 use App\Models\Channel;
-use Carbon\Carbon;
+use App\Models\Playlist;
 use Illuminate\Console\Command;
 use App\Services\YoutubeApiService;
-use App\Models\Playlist;
+use Carbon\Carbon;
 
 class SyncYoutubeVideos extends Command
 {
@@ -25,21 +25,9 @@ class SyncYoutubeVideos extends Command
     {
         $channelIdOption = $this->option('channel');
 
-        if ($channelIdOption) {
-            $channel = Channel::where('youtube_channel_id', $channelIdOption)->first();
-
-            if (!$channel) {
-                $this->error("❌ 채널을 찾을 수 없습니다: $channelIdOption");
-                return;
-            }
-
-            $this->syncChannelVideos($channel);
-            return;
-        }
-
-        $channels = Channel::where('is_active', true)
-            ->whereNotNull('youtube_channel_id')
-            ->get();
+        $channels = $channelIdOption
+            ? Channel::where('youtube_channel_id', $channelIdOption)->get()
+            : Channel::where('is_active', true)->whereNotNull('youtube_channel_id')->get();
 
         foreach ($channels as $channel) {
             $this->syncChannelVideos($channel);
@@ -67,7 +55,6 @@ class SyncYoutubeVideos extends Command
             }
 
             $videoIds = $this->youtube->getVideoIdsFromPlaylist($playlistId);
-
             if (empty($videoIds)) {
                 $this->warn("⚠️ 영상 ID 목록을 가져오지 못했습니다.");
                 return;
@@ -83,8 +70,36 @@ class SyncYoutubeVideos extends Command
 
         $saved = 0;
 
+        // ✅ 미리 모든 playlist-video 관계를 캐싱
+        $this->info("📚 재생목록 불러오는 중...");
+        $playlistMap = []; // [videoId => [playlistId, ...]]
+
+        $playlists = $this->youtube->getPlaylistsByChannel($channel->youtube_channel_id);
+        foreach ($playlists as $playlist) {
+            $playlistId = $playlist['playlist_id'] ?? null;
+
+            if (!$playlistId) continue;
+
+            // DB에 저장
+            $playlistModel = Playlist::updateOrCreate(
+                ['youtube_playlist_id' => $playlistId],
+                [
+                    'channel_id' => $channel->id,
+                    'title' => $playlist['title'],
+                    'description' => $playlist['description'] ?? null,
+                    'thumbnail_url' => $playlist['thumbnail'] ?? null,
+                ]
+            );
+
+            // 영상 목록 캐시 저장
+            $videoIds = $this->youtube->getPlaylistItems($playlistId);
+            foreach ($videoIds as $vid) {
+                $playlistMap[$vid][] = $playlistModel->id;
+            }
+        }
+
+        // 🔄 영상 저장 및 재생목록 연결
         foreach ($videoDetails as $video) {
-            // ✅ updateOrCreate 결과를 변수에 저장
             $videoModel = Video::updateOrCreate(
                 ['youtube_video_id' => $video['youtube_video_id']],
                 [
@@ -92,7 +107,9 @@ class SyncYoutubeVideos extends Command
                     'title' => $video['title'],
                     'description' => $video['description'],
                     'thumbnail_url' => $video['thumbnail_url'],
-                    'published_at' => $video['published_at'] ? Carbon::parse($video['published_at'])->timezone('Asia/Seoul')->format('Y-m-d H:i:s') : null,
+                    'published_at' => $video['published_at']
+                        ? Carbon::parse($video['published_at'])->timezone('Asia/Seoul')->format('Y-m-d H:i:s')
+                        : null,
                     'duration' => $video['duration'],
                     'view_count' => $video['view_count'],
                     'like_count' => $video['like_count'],
@@ -104,26 +121,10 @@ class SyncYoutubeVideos extends Command
                 ]
             );
 
-            $this->info("📚 재생목록 동기화 중...");
-            // ✅ 재생목록 연결 처리
-            $playlists = $this->youtube->getPlaylistsByChannel($channel->youtube_channel_id);
-
-            foreach ($playlists as $playlist) {
-                if (!isset($playlist['playlist_id'])) {
-                    $this->warn("⚠️ playlist 항목에 'playlist_id'가 없음: ".json_encode($playlist));
-                    continue;
-                }
-
-                $playlistVideoIds = $this->youtube->getPlaylistItems($playlist['playlist_id']);
-
-                if (in_array($video['youtube_video_id'], $playlistVideoIds)) {
-                    $playlistModel = Playlist::where('youtube_playlist_id', $playlist['playlist_id'])->first();
-                    if ($playlistModel) {
-                        $playlistModel->videos()->syncWithoutDetaching([$videoModel->id]);
-                    }
-                }
+            // 연결된 재생목록이 있다면 pivot 테이블에 연결
+            if (isset($playlistMap[$video['youtube_video_id']])) {
+                $videoModel->playlists()->syncWithoutDetaching($playlistMap[$video['youtube_video_id']]);
             }
-            $this->info("✅ 재생목록 동기화 완료: {$channel->name}");
 
             $saved++;
         }
