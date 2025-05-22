@@ -104,6 +104,7 @@ class SyncYoutubeVideos extends Command
                 ]
             );
 
+            $this->info("📚 재생목록 동기화 중...");
             // ✅ 재생목록 연결 처리
             $playlists = $this->youtube->getPlaylistsByChannel($channel->youtube_channel_id);
 
@@ -122,6 +123,7 @@ class SyncYoutubeVideos extends Command
                     }
                 }
             }
+            $this->info("✅ 재생목록 동기화 완료: {$channel->name}");
 
             $saved++;
         }
