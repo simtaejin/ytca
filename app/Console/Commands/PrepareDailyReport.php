@@ -16,9 +16,9 @@ class PrepareDailyReport extends Command
     protected array $gradeConfig = [
         ['min' => 4000, 'key' => 'S', 'label' => '🔥 대박 영상 (S급)'],
         ['min' => 1000, 'key' => 'A', 'label' => '🎯 중박 영상 (A급)'],
-        ['min' => 500,  'key' => 'B', 'label' => '✅ 소박 영상 (B급)'],
-        ['min' => 1,    'key' => 'C', 'label' => '💤 쪽박 영상 (C급)'],
-        ['min' => 0,    'key' => 'D', 'label' => '☠️ 0조회 영상 (D급)'],
+        ['min' => 500, 'key' => 'B', 'label' => '✅ 소박 영상 (B급)'],
+        ['min' => 1, 'key' => 'C', 'label' => '💤 쪽박 영상 (C급)'],
+        ['min' => 0, 'key' => 'D', 'label' => '☠️ 0조회 영상 (D급)'],
     ];
 
     public function handle()
@@ -73,47 +73,52 @@ class PrepareDailyReport extends Command
 
         foreach ($grouped as $channelName => $stats) {
             $lines[] = "🔹 채널: {$channelName}";
-            $lines[] = "- 총 조회수 증가: " . $stats->sum('view_increase');
-            $lines[] = "- 총 좋아요 수 증가: " . $stats->sum('like_increase');
-            $lines[] = "- 총 댓글 수 증가: " . $stats->sum('comment_increase');
+            $lines[] = "- 총 조회수 증가: ".$stats->sum('view_increase');
+            $lines[] = "- 총 좋아요 수 증가: ".$stats->sum('like_increase');
+            $lines[] = "- 총 댓글 수 증가: ".$stats->sum('comment_increase');
 
             $lines[] = "Top 3 영상:";
             $topVideos = $stats->sortByDesc('view_increase')->take(3);
             foreach ($topVideos as $i => $s) {
                 $title = $s->video->title ?? '제목 없음';
-                $lines[] = ($i + 1) . ". {$title} (+{$s->view_increase} 조회수)";
+                $lines[] = ($i + 1).". {$title} (+{$s->view_increase} 조회수)";
             }
             $lines[] = "";
 
+
             // 등급별 그룹 초기화 및 분류
-            $grades = [];
-            foreach ($this->gradeConfig as $config) {
-                $grades[$config['key']] = [];
-            }
-
-            foreach ($stats as $s) {
-                $views = $s->view_count;
+            // 등급 기준은 Slack 전송용일 때만 추가
+            if ($includeGradeDescription) {
+                $grades = [];
                 foreach ($this->gradeConfig as $config) {
-                    if ($views >= $config['min']) {
-                        $grades[$config['key']][] = $s;
-                        break;
+                    $grades[$config['key']] = [];
+                }
+
+                foreach ($stats as $s) {
+                    $views = $s->view_count;
+                    foreach ($this->gradeConfig as $config) {
+                        if ($views >= $config['min']) {
+                            $grades[$config['key']][] = $s;
+                            break;
+                        }
+                    }
+                }
+
+                // 출력
+                foreach ($this->gradeConfig as $config) {
+                    $group = $grades[$config['key']] ?? [];
+                    if (!empty($group)) {
+                        $lines[] = $config['label'];
+                        foreach ($group as $s) {
+                            $title = $s->video->title ?? '제목 없음';
+                            $views = $s->view_count;
+                            $lines[] = "- “{$title}” → {$views}회";
+                        }
+                        $lines[] = "";
                     }
                 }
             }
 
-            // 출력
-            foreach ($this->gradeConfig as $config) {
-                $group = $grades[$config['key']] ?? [];
-                if (!empty($group)) {
-                    $lines[] = $config['label'];
-                    foreach ($group as $s) {
-                        $title = $s->video->title ?? '제목 없음';
-                        $views = $s->view_count;
-                        $lines[] = "- “{$title}” → {$views}회";
-                    }
-                    $lines[] = "";
-                }
-            }
         }
 
         $lines[] = "이 데이터를 기반으로";
