@@ -32,7 +32,10 @@ class YoutubeSyncEngagement extends Command
             }
 
             $analytics = new YoutubeAnalyticsService($accessToken);
-            $videos = Video::where('channel_id', $channel->id)->get();
+            $videos = Video::where('channel_id', $channel->id)
+                ->where('privacy_status', 'public')
+                ->get();
+
             $updated = 0;
 
             foreach ($videos as $video) {
