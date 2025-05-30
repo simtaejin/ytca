@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Channel;
 use App\Models\Mongo\VideoStat;
-use App\Models\Video;
+
 use App\Services\YoutubeApiService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
