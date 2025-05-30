@@ -114,13 +114,13 @@ return [
 
         'mongodb' => [
             'driver' => 'mongodb',
-            'host' => env('MONGO_DB_HOST', '127.0.0.1'),
-            'port' => env('MONGO_DB_PORT', 27017),
-            'database' => env('MONGO_DB_DATABASE'),
-            'username' => env('MONGO_DB_USERNAME'),
-            'password' => env('MONGO_DB_PASSWORD'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', 27017),
+            'database' => env('DB_DATABASE'),
+            'username' => env('DB_USERNAME'),
+            'password' => env('DB_PASSWORD'),
             'options' => [
-                'authSource' => 'admin', // 인증 DB가 따로 지정되었을 경우 필수
+                'database' => env('DB_AUTHENTICATION_DATABASE', env('DB_DATABASE')), // 인증용 DB 명시
             ],
         ],
     ],
