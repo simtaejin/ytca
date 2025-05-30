@@ -120,10 +120,9 @@ return [
             'username' => env('MONGO_DB_USERNAME'),
             'password' => env('MONGO_DB_PASSWORD'),
             'options' => [
-                'database' => env('MONGO_DB_AUTHDATABASE', 'admin') // 인증 DB
-            ]
+                'authSource' => 'admin', // 인증 DB가 따로 지정되었을 경우 필수
+            ],
         ],
-
     ],
 
     /*
