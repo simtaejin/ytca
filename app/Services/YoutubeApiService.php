@@ -91,22 +91,29 @@ class YoutubeApiService
         foreach (array_chunk($videoIds, 50) as $chunk) {
             $ids = implode(',', $chunk);
 
-            $request = Http::asJson();
-
+            // ✅ 요청 준비
             if ($accessToken) {
-                $request = $request->withToken($accessToken);
+                $response = Http::withToken($accessToken)->get('https://www.googleapis.com/youtube/v3/videos', [
+                    'part' => 'snippet,statistics,contentDetails,status',
+                    'id' => $ids,
+                ]);
             } else {
-                $request = $request->withHeaders(['key' => config('services.youtube.key')]);
+                $response = Http::get('https://www.googleapis.com/youtube/v3/videos', [
+                    'part' => 'snippet,statistics,contentDetails,status',
+                    'id' => $ids,
+                    'key' => config('services.youtube.key'), // ✅ 반드시 쿼리 파라미터로 넘겨야 함
+                ]);
             }
-
-            $response = $request->get('https://www.googleapis.com/youtube/v3/videos', [
-                'part' => 'snippet,statistics,contentDetails,status',
-                'id' => $ids,
-            ]);
 
             $json = $response->json();
 
+            // ✅ 응답이 실패했을 때 디버깅 로그 남기기
             if (!$response->ok() || !isset($json['items'])) {
+                Log::warning('YouTube API 응답 오류', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'video_ids' => $ids,
+                ]);
                 continue;
             }
 
