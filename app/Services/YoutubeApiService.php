@@ -17,69 +17,48 @@ class YoutubeApiService
 
         $json = $response->json();
 
-        if ($response->ok() && isset($json['items']) && count($json['items']) > 0) {
+        if ($response->ok() && isset($json['items'][0])) {
             return $json['items'][0];
         }
+
+        Log::warning('채널 정보 조회 실패', [
+            'channel_id' => $channelId,
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
 
         return null;
     }
 
-    // ✅ 채널 ID → 업로드 플레이리스트 ID 조회
-    public function getUploadsPlaylistId(string $youtubeChannelId): ?string
+    public function getUploadsPlaylistId(string $channelId): ?string
     {
         $response = Http::get('https://www.googleapis.com/youtube/v3/channels', [
             'part' => 'contentDetails',
-            'id' => $youtubeChannelId,
+            'id' => $channelId,
             'key' => config('services.youtube.key'),
         ]);
 
         $json = $response->json();
 
-        if ($response->ok() && isset($json['items'][0]['contentDetails']['relatedPlaylists']['uploads'])) {
-            return $json['items'][0]['contentDetails']['relatedPlaylists']['uploads'];
-        }
-
-        return null;
+        return $json['items'][0]['contentDetails']['relatedPlaylists']['uploads'] ?? null;
     }
 
-    // 다음 단계 메서드 틀도 미리 준비해둘게요 👇
     public function getVideoIdsFromPlaylist(string $playlistId): array
     {
-        $videoIds = [];
-        $pageToken = null;
+        return $this->collectVideoIdsFromPaginatedApi('https://www.googleapis.com/youtube/v3/playlistItems', [
+            'part' => 'contentDetails',
+            'playlistId' => $playlistId,
+            'maxResults' => 50,
+        ], 'contentDetails.videoId');
+    }
 
-        do {
-            $response = Http::get('https://www.googleapis.com/youtube/v3/playlistItems', [
-                'part' => 'contentDetails',
-                'playlistId' => $playlistId,
-                'maxResults' => 50,
-                'pageToken' => $pageToken,
-                'key' => config('services.youtube.key'),
-            ]);
-
-            $json = $response->json();
-
-            if (!$response->ok() || !isset($json['items'])) {
-                break;
-            }
-
-            foreach ($json['items'] as $item) {
-                if (isset($item['contentDetails']['videoId'])) {
-                    $videoIds[] = $item['contentDetails']['videoId'];
-                }
-            }
-
-            // 다음 페이지 토큰 설정 (없으면 null로 종료됨)
-            $pageToken = $json['nextPageToken'] ?? null;
-
-            if ($pageToken) {
-                sleep(1); // 1초 기다림 (1000ms)
-                // 또는 usleep(500000); // 0.5초 쉬기
-            }
-
-        } while ($pageToken);
-
-        return $videoIds;
+    public function getPlaylistItems(string $playlistId): array
+    {
+        return $this->collectVideoIdsFromPaginatedApi('https://www.googleapis.com/youtube/v3/playlistItems', [
+            'part' => 'contentDetails',
+            'playlistId' => $playlistId,
+            'maxResults' => 50,
+        ], 'contentDetails.videoId');
     }
 
     public function getVideoDetails(array $videoIds, ?string $accessToken = null): array
@@ -91,25 +70,23 @@ class YoutubeApiService
         foreach (array_chunk($videoIds, 50) as $chunk) {
             $ids = implode(',', $chunk);
 
-            // ✅ 요청 준비
+            $params = [
+                'part' => 'snippet,statistics,contentDetails,status',
+                'id' => $ids,
+            ];
+
             if ($accessToken) {
-                $response = Http::withToken($accessToken)->get('https://www.googleapis.com/youtube/v3/videos', [
-                    'part' => 'snippet,statistics,contentDetails,status',
-                    'id' => $ids,
-                ]);
+                $response = Http::withToken($accessToken)
+                    ->get('https://www.googleapis.com/youtube/v3/videos', $params);
             } else {
-                $response = Http::get('https://www.googleapis.com/youtube/v3/videos', [
-                    'part' => 'snippet,statistics,contentDetails,status',
-                    'id' => $ids,
-                    'key' => config('services.youtube.key'), // ✅ 반드시 쿼리 파라미터로 넘겨야 함
-                ]);
+                $params['key'] = config('services.youtube.key');
+                $response = Http::get('https://www.googleapis.com/youtube/v3/videos', $params);
             }
 
             $json = $response->json();
 
-            // ✅ 응답이 실패했을 때 디버깅 로그 남기기
             if (!$response->ok() || !isset($json['items'])) {
-                Log::warning('YouTube API 응답 오류', [
+                Log::warning('YouTube API 응답 오류 (getVideoDetails)', [
                     'status' => $response->status(),
                     'body' => $response->body(),
                     'video_ids' => $ids,
@@ -142,24 +119,11 @@ class YoutubeApiService
         return $results;
     }
 
-    protected function parseDurationToSeconds(?string $duration): int
-    {
-        if (!$duration) return 0;
-
-        try {
-            $interval = new \DateInterval($duration);
-            return ($interval->h * 3600) + ($interval->i * 60) + $interval->s;
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
     public function getMyUploadedVideos(string $accessToken): array
     {
         $videoIds = [];
         $pageToken = null;
 
-        // STEP 1: 내 영상 검색 (비공개 포함)
         do {
             $response = Http::withToken($accessToken)->get('https://www.googleapis.com/youtube/v3/search', [
                 'part' => 'id',
@@ -185,7 +149,6 @@ class YoutubeApiService
             usleep(500000);
         } while ($pageToken);
 
-        // STEP 2: 상세 정보 조회
         return $this->getVideoDetails($videoIds, $accessToken);
     }
 
@@ -220,26 +183,37 @@ class YoutubeApiService
 
             $pageToken = $json['nextPageToken'] ?? null;
             usleep(300000);
-
         } while ($pageToken);
 
         return $playlists;
     }
 
-    public function getPlaylistItems(string $playlistId): array
+    protected function parseDurationToSeconds(?string $duration): int
+    {
+        if (!$duration) return 0;
+
+        try {
+            $interval = new \DateInterval($duration);
+            return ($interval->h * 3600) + ($interval->i * 60) + $interval->s;
+        } catch (\Exception $e) {
+            Log::warning('영상 시간 파싱 실패', [
+                'duration' => $duration,
+                'error' => $e->getMessage(),
+            ]);
+            return 0;
+        }
+    }
+
+    protected function collectVideoIdsFromPaginatedApi(string $url, array $params, string $dotPath): array
     {
         $videoIds = [];
         $pageToken = null;
 
         do {
-            $response = Http::get('https://www.googleapis.com/youtube/v3/playlistItems', [
-                'part' => 'contentDetails',
-                'playlistId' => $playlistId,
-                'maxResults' => 50,
-                'pageToken' => $pageToken,
-                'key' => config('services.youtube.key'),
-            ]);
+            $params['pageToken'] = $pageToken;
+            $params['key'] = config('services.youtube.key');
 
+            $response = Http::get($url, $params);
             $json = $response->json();
 
             if (!$response->ok() || !isset($json['items'])) {
@@ -247,9 +221,8 @@ class YoutubeApiService
             }
 
             foreach ($json['items'] as $item) {
-                if (isset($item['contentDetails']['videoId'])) {
-                    $videoIds[] = $item['contentDetails']['videoId'];
-                }
+                $value = data_get($item, $dotPath);
+                if ($value) $videoIds[] = $value;
             }
 
             $pageToken = $json['nextPageToken'] ?? null;
@@ -258,6 +231,4 @@ class YoutubeApiService
 
         return $videoIds;
     }
-
 }
-
