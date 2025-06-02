@@ -120,7 +120,7 @@ return [
             'username' => env('MONGO_DB_USERNAME'),
             'password' => env('MONGO_DB_PASSWORD'),
             'options' => [
-                'database' => env('DB_AUTHENTICATION_DATABASE', env('DB_DATABASE')), // 인증용 DB 명시
+                'authSource' => 'ytca', // ✅ 중요!
             ],
         ],
     ],
