@@ -120,7 +120,7 @@ return [
             'username' => env('MONGO_DB_USERNAME'),
             'password' => env('MONGO_DB_PASSWORD'),
             'options' => [
-                'authSource' => 'ytca', // ✅ 중요!
+                'authSource' => env('DB_AUTHENTICATION_DATABASE', 'admin'), // 🔥 동적으로 불러오기
             ],
         ],
     ],
