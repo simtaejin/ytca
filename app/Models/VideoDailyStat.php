@@ -10,20 +10,21 @@ class VideoDailyStat extends Model
     use HasFactory;
 
     protected $fillable = [
-        'video_id',
-        'date',
+        'youtube_channel_id',
+        'youtube_video_id', // ← 추가
+        'channel_id',        // 필요 시
         'view_count',
         'like_count',
         'comment_count',
-        'view_increase',
-        'like_increase',
-        'comment_increase',
         'collected_at',
     ];
 
     protected $casts = [
         'date' => 'date',
         'collected_at' => 'datetime',
+        'view_count' => 'integer',
+        'like_count' => 'integer',
+        'comment_count' => 'integer',
     ];
 
     public function video()
