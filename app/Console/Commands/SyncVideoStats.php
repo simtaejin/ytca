@@ -68,7 +68,7 @@ class SyncVideoStats extends Command
             try {
                 VideoStat::create([
                     'youtube_channel_id' => $channel->youtube_channel_id,
-                    'youtube_video_id' => $video->youtube_video_id, // 유튜브 고유 ID (예: "aBc123XYZ")
+                    'youtube_video_id' => $video->youtube_video_id,
                     'view_count' => $stats['view_count'],
                     'like_count' => $stats['like_count'],
                     'comment_count' => $stats['comment_count'],
