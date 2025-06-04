@@ -10,12 +10,12 @@ class VideoStat extends Model
     protected $collection = 'video_stats';
 
     protected $fillable = [
-        'video_id',
-        'channel_id',
-        'collected_at',
+        'youtube_channel_id',
+        'youtube_video_id',
         'view_count',
         'like_count',
         'comment_count',
+        'collected_at',
         'created_at',
     ];
 
