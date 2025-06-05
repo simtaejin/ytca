@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 class YoutubeSyncEngagement extends Command
 {
     protected $signature = 'youtube:sync-engagement {--channel=}';
-    protected $description = 'YouTube Analytics API를 사용해 영상별 참여도(좋아요, 댓글, 시청시간 등)를 동기화합니다.';
+    protected $description = 'YouTube Analytics API를 사용해 영상별 참여도(시청 시간 등)를 동기화합니다.';
 
     public function handle()
     {
@@ -39,53 +39,57 @@ class YoutubeSyncEngagement extends Command
             $updated = 0;
 
             foreach ($videos as $video) {
-                $metrics = $analytics->getVideoEngagementMetrics($video->youtube_video_id, $video->published_at);
-
-                if (!$metrics) {
+                // 🎯 Analytics API에서 시청 시간 관련 데이터만 가져옴
+                $analyticsData = $analytics->getVideoEngagementMetrics($video->youtube_video_id, $video->published_at);
+                if (!$analyticsData) {
                     $this->warn("⚠️ 영상 [{$video->title}] 참여도 데이터 없음.");
                     continue;
                 }
 
-                // ✅ 평균 시청률 보정
+                // 🎯 영상 기본 메타데이터에서 views, likes, comments 사용
+                $views = max($video->view_count, 1); // 0 나눗셈 방지
+                $likes = $video->like_count;
+                $comments = $video->comment_count;
+
+                // 🎯 engagement_score 계산 (shares 제외)
+                $engagementScore = ($likes + $comments) / $views;
+
+                // 🎯 watch_quality 계산
+                $watchQuality = $analyticsData['estimated_minutes_watched'] / $views;
+
+                // 🎯 영상 길이에 따른 기대 시청 시간 (정규화 기준)
                 $videoDuration = $this->parseDurationToSeconds($video->duration);
-                $metrics['average_view_percentage'] = $videoDuration > 0
-                    ? round(min($metrics['average_view_duration'] / $videoDuration * 100, 100), 1)
-                    : 0;
+                $expectedWatchTime = max($videoDuration * 0.7, 30); // 최소 30초
+                $normalizedWatch = min($analyticsData['average_view_duration'] / $expectedWatchTime, 1.0);
 
-                // ✅ engagement_score / watch_quality 계산
-                $views = max($metrics['views'], 1); // 0 방지
-                $engagementScore = ($metrics['likes'] + $metrics['comments'] + $metrics['shares']) / $views;
-                $watchQuality = $metrics['estimated_minutes_watched'] / $views;
-
-                // ✅ 기대 시청 시간: 영상 길이의 70% 또는 최소 30초
-                $expectedWatchTime = max($videoDuration * 0.7, 30);
-                $normalizedWatch = min($metrics['average_view_duration'] / $expectedWatchTime, 1.0);
-
-                // ✅ engagement 정규화 (기준 5%)
+                // 🎯 정규화 및 종합 점수
                 $normalizedEngagement = min($engagementScore / 0.05, 1.0);
-
-                // ✅ 종합 점수 계산 (동일 가중치)
                 $combinedScore = round(($normalizedEngagement * 0.5) + ($normalizedWatch * 0.5), 2);
 
-                // ✅ 등급 판별
+                // 🎯 등급 판별
                 $grade = match (true) {
-                    $combinedScore >= 1.5 => 'A',
-                    $combinedScore >= 1.0 => 'B',
-                    $combinedScore >= 0.5 => 'C',
-                    $combinedScore >= 0.25 => 'D',
-                    default => 'F',
+                    $combinedScore >= 0.8 => 'A',
+                    $combinedScore >= 0.6 => 'B',
+                    $combinedScore >= 0.4 => 'C',
+                    default => 'D',
                 };
 
-                // ✅ 메트릭 저장
-                $metrics['engagement_score'] = round($engagementScore, 4);
-                $metrics['watch_quality'] = round($watchQuality, 4);
-                $metrics['normalized_watch'] = round($normalizedWatch, 4);
-                $metrics['combined_score'] = $combinedScore;
-                $metrics['video_grade'] = $grade;
-
+                // 🎯 저장
                 VideoEngagement::updateOrCreate(
                     ['video_id' => $video->id],
-                    $metrics
+                    [
+                        'views' => $views,
+                        'likes' => $likes,
+                        'comments' => $comments,
+                        'subscribers_gained' => $analyticsData['subscribers_gained'] ?? 0,
+                        'estimated_minutes_watched' => $analyticsData['estimated_minutes_watched'] ?? 0,
+                        'average_view_duration' => $analyticsData['average_view_duration'] ?? 0,
+                        'average_view_percentage' => $analyticsData['average_view_percentage'] ?? 0,
+                        'engagement_score' => round($engagementScore, 4),
+                        'watch_quality' => round($watchQuality, 4),
+                        'combined_score' => $combinedScore,
+                        'video_grade' => $grade,
+                    ]
                 );
 
                 $updated++;
