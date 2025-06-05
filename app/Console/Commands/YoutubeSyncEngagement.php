@@ -52,23 +52,35 @@ class YoutubeSyncEngagement extends Command
                     ? round(min($metrics['average_view_duration'] / $videoDuration * 100, 100), 1)
                     : 0;
 
-                // ✅ 추가 지표 계산
-                $views = $metrics['views'] ?: 1; // 0 나눗셈 방지
+                // ✅ engagement_score / watch_quality 계산
+                $views = max($metrics['views'], 1); // 0 방지
                 $engagementScore = ($metrics['likes'] + $metrics['comments'] + $metrics['shares']) / $views;
                 $watchQuality = $metrics['estimated_minutes_watched'] / $views;
-                $totalScore = $engagementScore + $watchQuality;
+
+                // ✅ 기대 시청 시간: 영상 길이의 70% 또는 최소 30초
+                $expectedWatchTime = max($videoDuration * 0.7, 30);
+                $normalizedWatch = min($metrics['average_view_duration'] / $expectedWatchTime, 1.0);
+
+                // ✅ engagement 정규화 (기준 5%)
+                $normalizedEngagement = min($engagementScore / 0.05, 1.0);
+
+                // ✅ 종합 점수 계산 (동일 가중치)
+                $combinedScore = round(($normalizedEngagement * 0.5) + ($normalizedWatch * 0.5), 2);
 
                 // ✅ 등급 판별
                 $grade = match (true) {
-                    $totalScore >= 1.5 => 'A',
-                    $totalScore >= 1.0 => 'B',
-                    $totalScore >= 0.5 => 'C',
-                    $totalScore >= 0.25 => 'D',
+                    $combinedScore >= 1.5 => 'A',
+                    $combinedScore >= 1.0 => 'B',
+                    $combinedScore >= 0.5 => 'C',
+                    $combinedScore >= 0.25 => 'D',
                     default => 'F',
                 };
 
+                // ✅ 메트릭 저장
                 $metrics['engagement_score'] = round($engagementScore, 4);
                 $metrics['watch_quality'] = round($watchQuality, 4);
+                $metrics['normalized_watch'] = round($normalizedWatch, 4);
+                $metrics['combined_score'] = $combinedScore;
                 $metrics['video_grade'] = $grade;
 
                 VideoEngagement::updateOrCreate(
