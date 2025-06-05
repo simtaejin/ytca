@@ -16,6 +16,9 @@ class VideoEngagement extends Model
         'estimated_minutes_watched',
         'average_view_duration',
         'average_view_percentage',
+        'engagement_score',
+        'watch_quality',
+        'video_grade',
     ];
 
     // 🔗 영상과의 관계 정의

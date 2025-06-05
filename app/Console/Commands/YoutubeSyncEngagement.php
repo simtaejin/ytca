@@ -46,14 +46,30 @@ class YoutubeSyncEngagement extends Command
                     continue;
                 }
 
-                // ✅ 평균 시청률 보정 로직
+                // ✅ 평균 시청률 보정
                 $videoDuration = $this->parseDurationToSeconds($video->duration);
-                if ($videoDuration > 0) {
-                    $calculated = $metrics['average_view_duration'] / $videoDuration * 100;
-                    $metrics['average_view_percentage'] = round(min($calculated, 100), 1);
-                } else {
-                    $metrics['average_view_percentage'] = 0;
-                }
+                $metrics['average_view_percentage'] = $videoDuration > 0
+                    ? round(min($metrics['average_view_duration'] / $videoDuration * 100, 100), 1)
+                    : 0;
+
+                // ✅ 추가 지표 계산
+                $views = $metrics['views'] ?: 1; // 0 나눗셈 방지
+                $engagementScore = ($metrics['likes'] + $metrics['comments'] + $metrics['shares']) / $views;
+                $watchQuality = $metrics['estimated_minutes_watched'] / $views;
+                $totalScore = $engagementScore + $watchQuality;
+
+                // ✅ 등급 판별
+                $grade = match (true) {
+                    $totalScore >= 1.5 => 'A',
+                    $totalScore >= 1.0 => 'B',
+                    $totalScore >= 0.5 => 'C',
+                    $totalScore >= 0.25 => 'D',
+                    default => 'F',
+                };
+
+                $metrics['engagement_score'] = round($engagementScore, 4);
+                $metrics['watch_quality'] = round($watchQuality, 4);
+                $metrics['video_grade'] = $grade;
 
                 VideoEngagement::updateOrCreate(
                     ['video_id' => $video->id],
@@ -80,11 +96,4 @@ class YoutubeSyncEngagement extends Command
             return 0;
         }
     }
-
-    // TODO
-    //| 지표명                | 저장 위치                           | 계산 방식                                 | 언제 추가 가능?        |
-    //| ------------------ | ------------------------------- | ------------------------------------- | ---------------- |
-    //| `engagement_score` | `video_engagements` 테이블 (추가 컬럼) | `(likes + comments + shares) / views` | 다음 리포트 기능 만들 때   |
-    //| `watch_quality`    | `video_engagements` 테이블 (추가 컬럼) | `estimated_minutes_watched / views`   | 시청 품질 분석 기능 도입 시 |
-
 }
